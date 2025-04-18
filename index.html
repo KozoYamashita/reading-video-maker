@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Reading Video Maker</title>
+  </head>
+  <body>
+    <div id="root"></div>
+
+    <!-- ✅ ffmpeg CDN：必ず main.jsx より前に読み込む -->
+    <script src="https://unpkg.com/@ffmpeg/ffmpeg@0.10.0/dist/ffmpeg.min.js"></script>
+
+    <!-- ✅ Viteエントリーポイント（type="module"のままでOK） -->
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
