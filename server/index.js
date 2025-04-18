@@ -4,11 +4,11 @@ const cors = require("cors");
 const path = require("path");
 const fs = require("fs");
 const ffmpeg = require("fluent-ffmpeg");
+const ffmpegPath = require("ffmpeg-static"); // ✅ staticパス取得
 
 const app = express();
 const port = process.env.PORT || 10000;
 
-// ✅ CORS設定追加（全てのオリジンを許可）
 app.use(cors());
 
 const upload = multer({ dest: "uploads/" });
@@ -21,7 +21,7 @@ app.post("/generate-video", upload.fields([
     const imagePath = req.files.image[0].path;
     const audioPath = req.files.audio[0].path;
 
-    // ✅ 出力フォルダがなければ作成
+    // ✅ 出力ディレクトリがなければ作成
     const outputDir = path.join(__dirname, "outputs");
     if (!fs.existsSync(outputDir)) {
       fs.mkdirSync(outputDir);
@@ -29,9 +29,11 @@ app.post("/generate-video", upload.fields([
 
     const outputPath = path.join(outputDir, `output_${Date.now()}.mp4`);
 
+    ffmpeg.setFfmpegPath(ffmpegPath); // ✅ staticなffmpegに切り替え
+
     ffmpeg()
       .addInput(imagePath)
-      .loop(5) // 画像を5秒表示
+      .loop(5) // 画像5秒表示
       .addInput(audioPath)
       .outputOptions([
         "-c:v libx264",
