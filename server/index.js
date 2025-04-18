@@ -4,12 +4,14 @@ const cors = require("cors");
 const path = require("path");
 const fs = require("fs");
 const ffmpeg = require("fluent-ffmpeg");
-const ffmpegPath = require("ffmpeg-static"); // ✅ staticパス取得
+const ffmpegPath = require("ffmpeg-static");
 
 const app = express();
 const port = process.env.PORT || 10000;
 
 app.use(cors());
+
+ffmpeg.setFfmpegPath(ffmpegPath);
 
 const upload = multer({ dest: "uploads/" });
 
@@ -21,7 +23,6 @@ app.post("/generate-video", upload.fields([
     const imagePath = req.files.image[0].path;
     const audioPath = req.files.audio[0].path;
 
-    // ✅ 出力ディレクトリがなければ作成
     const outputDir = path.join(__dirname, "outputs");
     if (!fs.existsSync(outputDir)) {
       fs.mkdirSync(outputDir);
@@ -29,17 +30,16 @@ app.post("/generate-video", upload.fields([
 
     const outputPath = path.join(outputDir, `output_${Date.now()}.mp4`);
 
-    ffmpeg.setFfmpegPath(ffmpegPath); // ✅ staticなffmpegに切り替え
-
     ffmpeg()
       .addInput(imagePath)
-      .loop(5) // 画像5秒表示
+      .loop(2) // 🔽 短くする（2秒）
       .addInput(audioPath)
       .outputOptions([
+        "-preset ultrafast", // 🔽 CPU負荷軽減
         "-c:v libx264",
         "-c:a aac",
         "-strict experimental",
-        "-shortest",
+        "-shortest"
       ])
       .on("end", () => {
         res.sendFile(outputPath);
@@ -49,6 +49,7 @@ app.post("/generate-video", upload.fields([
         res.status(500).send("動画生成に失敗しました。");
       })
       .save(outputPath);
+
   } catch (err) {
     console.error("Unexpected error:", err);
     res.status(500).send("内部エラー");
