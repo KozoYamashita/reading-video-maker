@@ -1,63 +1,56 @@
-const express = require('express');
-const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
-const generateVideo = require('./generateVideo');
+const express = require("express");
+const multer = require("multer");
+const cors = require("cors");
+const path = require("path");
+const fs = require("fs");
+const ffmpeg = require("fluent-ffmpeg");
 
 const app = express();
 const port = process.env.PORT || 10000;
 
-// アップロード先ディレクトリの設定
-const uploadDir = path.join(__dirname, 'uploads');
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
+// ✅ CORS設定追加（全てのオリジンを許可）
+app.use(cors());
 
-// multer設定（ファイルの保存先とファイル名）
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, uploadDir);
-  },
-  filename: function (req, file, cb) {
-    const ext = path.extname(file.originalname);
-    const base = path.basename(file.originalname, ext);
-    const uniqueName = `${base}_${Date.now()}${ext}`;
-    cb(null, uniqueName);
-  }
-});
-const upload = multer({ storage });
+const upload = multer({ dest: "uploads/" });
 
-// 動作確認ルート（GET）
-app.get('/', (req, res) => {
-  res.send('Reading Video Maker API is running!');
-});
+app.post("/generate-video", upload.fields([
+  { name: "image", maxCount: 1 },
+  { name: "audio", maxCount: 1 }
+]), async (req, res) => {
+  try {
+    const imagePath = req.files.image[0].path;
+    const audioPath = req.files.audio[0].path;
 
-// 🎥 動画生成ルート（POST）
-app.post('/generate-video', upload.fields([
-  { name: 'image', maxCount: 1 },
-  { name: 'audio', maxCount: 1 }
-]), (req, res) => {
-  const imageFile = req.files['image']?.[0];
-  const audioFile = req.files['audio']?.[0];
-
-  if (!imageFile || !audioFile) {
-    return res.status(400).send('画像ファイルと音声ファイルを両方送信してください');
-  }
-
-  generateVideo(imageFile.path, audioFile.path, (err, outputPath) => {
-    if (err) {
-      return res.status(500).send('動画生成に失敗しました');
+    // ✅ 出力フォルダがなければ作成
+    const outputDir = path.join(__dirname, "outputs");
+    if (!fs.existsSync(outputDir)) {
+      fs.mkdirSync(outputDir);
     }
 
-    res.download(outputPath, err => {
-      if (err) {
-        console.error('ダウンロード失敗:', err);
-        res.status(500).send('動画の送信に失敗しました');
-      } else {
-        console.log('動画送信完了:', outputPath);
-      }
-    });
-  });
+    const outputPath = path.join(outputDir, `output_${Date.now()}.mp4`);
+
+    ffmpeg()
+      .addInput(imagePath)
+      .loop(5) // 画像を5秒表示
+      .addInput(audioPath)
+      .outputOptions([
+        "-c:v libx264",
+        "-c:a aac",
+        "-strict experimental",
+        "-shortest",
+      ])
+      .on("end", () => {
+        res.sendFile(outputPath);
+      })
+      .on("error", (err) => {
+        console.error("FFmpeg error:", err);
+        res.status(500).send("動画生成に失敗しました。");
+      })
+      .save(outputPath);
+  } catch (err) {
+    console.error("Unexpected error:", err);
+    res.status(500).send("内部エラー");
+  }
 });
 
 app.listen(port, () => {
